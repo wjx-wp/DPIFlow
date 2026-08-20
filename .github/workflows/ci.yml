@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, 'feat/**', 'fix/**' ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build Release
+        shell: pwsh
+        run: msbuild DPIFlow.sln /m /p:Configuration=Release /p:Platform="Any CPU"
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: DPIFlow-win
+          path: src/DPIFlow/bin/Release/DPIFlow.exe
+          if-no-files-found: error
