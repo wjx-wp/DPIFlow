@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "DPIFlow Browser Companion",
+  "version": "0.1.0",
+  "description": "Automatically applies per-monitor page zoom to Chrome/Edge windows.",
+  "minimum_chrome_version": "88",
+  "permissions": ["tabs", "storage", "system.display"],
+  "background": { "service_worker": "background.js" },
+  "options_page": "options.html"
+}

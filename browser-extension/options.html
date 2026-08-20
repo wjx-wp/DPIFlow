@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DPIFlow Browser Companion</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; margin: 32px; max-width: 760px; color: #202124; }
+    h1 { font-size: 22px; margin-bottom: 6px; }
+    .muted { color: #5f6368; }
+    .display { display: grid; grid-template-columns: 1fr 140px; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid #e0e0e0; }
+    input[type=number] { width: 90px; padding: 6px; }
+    button { margin-top: 20px; margin-right: 8px; padding: 8px 14px; }
+    #status { margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <h1>DPIFlow Browser Companion</h1>
+  <p class="muted">Leave a zoom field blank for automatic DPI-based selection. Example: 0.90 = 90%, 1.00 = 100%.</p>
+  <label><input id="enabled" type="checkbox"> Enable automatic per-monitor browser zoom</label>
+  <div id="displays"></div>
+  <button id="save">Save</button><button id="reset">Reset to auto</button><span id="status"></span>
+  <script src="options.js"></script>
+</body>
+</html>
