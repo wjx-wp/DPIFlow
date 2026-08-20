@@ -49,18 +49,31 @@ namespace DPIFlow.Services
             var list = new List<MonitorInfo>();
             foreach (var screen in Screen.AllScreens)
             {
-                var dd = new NativeMethods.DISPLAY_DEVICE(); dd.cb = Marshal.SizeOf(dd);
+                var dd = new NativeMethods.DISPLAY_DEVICE();
+                dd.cb = Marshal.SizeOf(dd);
                 NativeMethods.EnumDisplayDevices(screen.DeviceName, 0, ref dd, 0);
+
                 var center = new NativeMethods.POINT(screen.Bounds.Left + screen.Bounds.Width / 2, screen.Bounds.Top + screen.Bounds.Height / 2);
                 IntPtr handle = NativeMethods.MonitorFromPoint(center, NativeMethods.MONITOR_DEFAULTTONEAREST);
-                uint dx = 96, dy = 96;
+                int scale = 100;
                 try
                 {
-                    int hr = NativeMethods.GetDpiForMonitor(handle, 0, out dx, out dy);
-                    if (hr != 0 || dx == 0 || dy == 0) dx = dy = 96;
+                    int hr = NativeMethods.GetScaleFactorForMonitor(handle, out scale);
+                    if (hr != 0 || scale <= 0) scale = 100;
                 }
-                catch { dx = dy = 96; }
-                list.Add(new MonitorInfo { DeviceName = screen.DeviceName, FriendlyName = dd.DeviceString, DeviceId = dd.DeviceID, Primary = screen.Primary, Bounds = screen.Bounds, DpiX = dx, DpiY = dy });
+                catch { scale = 100; }
+
+                uint dpi = (uint)Math.Round(96.0 * scale / 100.0);
+                list.Add(new MonitorInfo
+                {
+                    DeviceName = screen.DeviceName,
+                    FriendlyName = dd.DeviceString,
+                    DeviceId = dd.DeviceID,
+                    Primary = screen.Primary,
+                    Bounds = screen.Bounds,
+                    DpiX = dpi,
+                    DpiY = dpi
+                });
             }
             return list;
         }
@@ -69,7 +82,8 @@ namespace DPIFlow.Services
         {
             IntPtr handle = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
             if (handle == IntPtr.Zero) return null;
-            var mi = new NativeMethods.MONITORINFOEX(); mi.cbSize = Marshal.SizeOf(mi);
+            var mi = new NativeMethods.MONITORINFOEX();
+            mi.cbSize = Marshal.SizeOf(mi);
             if (!NativeMethods.GetMonitorInfo(handle, ref mi)) return null;
             return GetMonitors().FirstOrDefault(m => string.Equals(m.DeviceName, mi.szDevice, StringComparison.OrdinalIgnoreCase));
         }
@@ -122,13 +136,21 @@ namespace DPIFlow.Services
         internal WindowInfo Inspect(IntPtr hwnd)
         {
             if (hwnd == IntPtr.Zero || !NativeMethods.IsWindowVisible(hwnd)) return null;
-            uint pid; NativeMethods.GetWindowThreadProcessId(hwnd, out pid);
+            uint pid;
+            NativeMethods.GetWindowThreadProcessId(hwnd, out pid);
             if (pid == 0) return null;
             try
             {
                 using (var process = Process.GetProcessById((int)pid))
                 {
-                    return new WindowInfo { Hwnd = hwnd, ProcessId = (int)pid, ProcessName = process.ProcessName + ".exe", Title = NativeMethods.ReadWindowTitle(hwnd), Monitor = _monitors.GetForWindow(hwnd) };
+                    return new WindowInfo
+                    {
+                        Hwnd = hwnd,
+                        ProcessId = (int)pid,
+                        ProcessName = process.ProcessName + ".exe",
+                        Title = NativeMethods.ReadWindowTitle(hwnd),
+                        Monitor = _monitors.GetForWindow(hwnd)
+                    };
                 }
             }
             catch { return null; }
@@ -148,6 +170,7 @@ namespace DPIFlow.Services
         private IntPtr _foregroundHook;
         private IntPtr _moveEndHook;
         internal event EventHandler<WindowChangedEventArgs> WindowChanged;
+
         internal void Start()
         {
             _callback = OnWinEvent;
@@ -156,11 +179,13 @@ namespace DPIFlow.Services
             _moveEndHook = NativeMethods.SetWinEventHook(NativeMethods.EVENT_SYSTEM_MOVESIZEEND, NativeMethods.EVENT_SYSTEM_MOVESIZEEND, IntPtr.Zero, _callback, 0, 0, flags);
             if (_foregroundHook == IntPtr.Zero || _moveEndHook == IntPtr.Zero) throw new InvalidOperationException("Unable to install WinEvent hooks.");
         }
+
         private void OnWinEvent(IntPtr hook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint threadId, uint time)
         {
             var handler = WindowChanged;
             if (handler != null && hwnd != IntPtr.Zero) handler(this, new WindowChangedEventArgs(hwnd, eventType));
         }
+
         public void Dispose()
         {
             if (_foregroundHook != IntPtr.Zero) NativeMethods.UnhookWinEvent(_foregroundHook);
