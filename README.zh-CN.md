@@ -14,12 +14,15 @@ Windows 的按显示器、按应用自动缩放管理器。
 - .NET Framework 4.8；正常使用无需管理员权限。
 - WinEvent 事件驱动，不靠高频轮询。
 - 自动识别窗口、进程、当前显示器、有效 DPI。
+- 显示器信息缓存，仅在显示配置变化时刷新。
 - 规则保存在 `%LOCALAPPDATA%\DPIFlow\settings.json`。
 - 设置界面可对“最后使用的应用”一键生成所有显示器规则。
 - `Observe`：不操作，让 Windows/应用自身处理 DPI。
 - `ChromiumKeyboardZoom`：Chrome/Edge 的无插件兜底方案，跨屏时用 Ctrl+0 / Ctrl+± 切网页缩放。
 - 可选开机自启，仅写当前用户启动项。
-- GitHub Actions 自动真实编译 Windows EXE；`v*` Tag 自动发布 Release + SHA-256。
+- 单实例保护和本地诊断日志。
+- GitHub Actions 在 Windows runner 上真实编译 EXE。
+- 根目录 `VERSION` 控制发布版本；合并到 `main` 后，如该版本尚未发布，会自动创建 Tag/Release，并附带 EXE、SHA-256 与浏览器 Companion ZIP。
 
 ## 推荐用法
 
@@ -30,11 +33,11 @@ Windows 的按显示器、按应用自动缩放管理器。
 5. 如果内屏 DPI 明显高于外屏，Chrome 内屏规则默认 90%，低 DPI 外屏默认 100%。
 6. 保存。以后跨屏自动执行。
 
-## Chrome 的“完美模式”
+## Chrome / Edge 的“完美模式”
 
-仓库里的 `browser-extension/` 是 Manifest V3 companion。它不是模拟快捷键，而是通过 Chrome 官方 `windows/system.display/tabs` API 判断浏览器窗口在哪块显示器，再对每个标签页设置 per-tab Zoom；跨屏、切标签、导航页面后都会重新应用。
+仓库里的 `browser-extension/` 是 Manifest V3 Companion。它不是模拟快捷键，而是通过 Chrome 官方 `windows/system.display/tabs` API 判断浏览器窗口在哪块显示器，再对每个标签页设置 per-tab Zoom；跨屏、切标签、移动标签与页面导航后都会重新应用。
 
-当前 companion 和 EXE 暂时独立配置。后续会通过 Native Messaging 统一设置。即使不装 companion，EXE 的 ChromiumKeyboardZoom 仍可作为轻量兜底。
+当前 Companion 和 EXE 暂时独立配置。后续可通过 Native Messaging 统一设置。即使不装 Companion，EXE 的 `ChromiumKeyboardZoom` 仍可作为轻量兜底。
 
 ## 安全原则
 
