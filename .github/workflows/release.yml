@@ -16,12 +16,13 @@ jobs:
       - name: Build
         shell: pwsh
         run: msbuild DPIFlow.sln /m /p:Configuration=Release /p:Platform="Any CPU"
-      - name: SHA256
+      - name: Prepare assets
         shell: pwsh
         run: |
           $exe = 'src/DPIFlow/bin/Release/DPIFlow.exe'
           $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  DPIFlow.exe" | Set-Content 'DPIFlow.exe.sha256' -Encoding ascii
+          Compress-Archive -Path 'browser-extension/*' -DestinationPath 'DPIFlow-Browser-Companion.zip' -Force
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -29,3 +30,4 @@ jobs:
           files: |
             src/DPIFlow/bin/Release/DPIFlow.exe
             DPIFlow.exe.sha256
+            DPIFlow-Browser-Companion.zip

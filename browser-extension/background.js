@@ -49,10 +49,7 @@ async function applyZoomToTab(tabId, zoom) {
 async function applyWindow(windowId) {
   if (!windowId || windowId === chrome.windows.WINDOW_ID_NONE) return;
   try {
-    const [win, displays] = await Promise.all([
-      chrome.windows.get(windowId),
-      chrome.system.display.getInfo()
-    ]);
+    const [win, displays] = await Promise.all([chrome.windows.get(windowId), chrome.system.display.getInfo()]);
     if (!win || win.type !== 'normal') return;
     const display = selectDisplay(win, displays);
     if (!display) return;
@@ -76,6 +73,8 @@ chrome.windows.onCreated.addListener(win => applyWindow(win.id));
 chrome.windows.onBoundsChanged.addListener(win => applyWindow(win.id));
 chrome.windows.onFocusChanged.addListener(windowId => applyWindow(windowId));
 chrome.tabs.onActivated.addListener(info => applyWindow(info.windowId));
+chrome.tabs.onAttached.addListener((tabId, info) => applyWindow(info.newWindowId));
+chrome.tabs.onDetached.addListener((tabId, info) => applyWindow(info.oldWindowId));
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'loading' || changeInfo.status === 'complete') applyWindow(tab.windowId);
 });

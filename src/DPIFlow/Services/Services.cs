@@ -13,6 +13,35 @@ using System.Windows.Forms;
 
 namespace DPIFlow.Services
 {
+    internal static class LogService
+    {
+        private static readonly object Sync = new object();
+        internal static string FolderPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DPIFlow"); } }
+        internal static string FilePath { get { return Path.Combine(FolderPath, "dpiflow.log"); } }
+
+        internal static void Info(string message) { Write("INFO", message); }
+        internal static void Error(string message, Exception ex = null) { Write("ERROR", message + (ex == null ? string.Empty : " | " + ex)); }
+
+        private static void Write(string level, string message)
+        {
+            try
+            {
+                lock (Sync)
+                {
+                    Directory.CreateDirectory(FolderPath);
+                    if (File.Exists(FilePath) && new FileInfo(FilePath).Length > 1024 * 1024)
+                    {
+                        string oldPath = FilePath + ".old";
+                        if (File.Exists(oldPath)) File.Delete(oldPath);
+                        File.Move(FilePath, oldPath);
+                    }
+                    File.AppendAllText(FilePath, string.Format("{0:yyyy-MM-dd HH:mm:ss.fff} [{1}] {2}{3}", DateTime.Now, level, message, Environment.NewLine));
+                }
+            }
+            catch { }
+        }
+    }
+
     internal sealed class MonitorService
     {
         internal List<MonitorInfo> GetMonitors()
@@ -25,7 +54,12 @@ namespace DPIFlow.Services
                 var center = new NativeMethods.POINT(screen.Bounds.Left + screen.Bounds.Width / 2, screen.Bounds.Top + screen.Bounds.Height / 2);
                 IntPtr handle = NativeMethods.MonitorFromPoint(center, NativeMethods.MONITOR_DEFAULTTONEAREST);
                 uint dx = 96, dy = 96;
-                try { NativeMethods.GetDpiForMonitor(handle, 0, out dx, out dy); } catch { dx = dy = 96; }
+                try
+                {
+                    int hr = NativeMethods.GetDpiForMonitor(handle, 0, out dx, out dy);
+                    if (hr != 0 || dx == 0 || dy == 0) dx = dy = 96;
+                }
+                catch { dx = dy = 96; }
                 list.Add(new MonitorInfo { DeviceName = screen.DeviceName, FriendlyName = dd.DeviceString, DeviceId = dd.DeviceID, Primary = screen.Primary, Bounds = screen.Bounds, DpiX = dx, DpiY = dy });
             }
             return list;
@@ -44,7 +78,7 @@ namespace DPIFlow.Services
     internal sealed class SettingsStore
     {
         private readonly JavaScriptSerializer _json = new JavaScriptSerializer();
-        internal string FolderPath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DPIFlow"); } }
+        internal string FolderPath { get { return LogService.FolderPath; } }
         internal string FilePath { get { return Path.Combine(FolderPath, "settings.json"); } }
         internal AppSettings Load()
         {
@@ -54,7 +88,11 @@ namespace DPIFlow.Services
                 var value = _json.Deserialize<AppSettings>(File.ReadAllText(FilePath));
                 return value ?? new AppSettings();
             }
-            catch { return new AppSettings(); }
+            catch (Exception ex)
+            {
+                LogService.Error("Failed to load settings; using defaults.", ex);
+                return new AppSettings();
+            }
         }
         internal void Save(AppSettings settings)
         {
