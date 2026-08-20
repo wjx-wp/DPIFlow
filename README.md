@@ -12,13 +12,15 @@ A 14-inch 1080p laptop panel and a 24-inch 1080p external display can have drama
 
 - Windows 10/11 tray app, .NET Framework 4.8, no admin requirement.
 - Event-driven window tracking using WinEvent hooks (foreground + move/resize end).
-- Per-monitor identity and effective DPI detection.
+- Per-monitor identity and effective DPI detection with a cached monitor map refreshed only when display topology changes.
 - Local JSON rules at `%LOCALAPPDATA%\DPIFlow\settings.json`.
 - Quick-add the last foreground app across all connected monitors.
 - `Observe` adapter: no modification; useful for apps that already support Per-Monitor DPI correctly.
 - `ChromiumKeyboardZoom` adapter: lightweight fallback for Chrome/Edge using Ctrl+0 and zoom steps.
 - Optional start-with-Windows setting under the current user.
-- GitHub Actions builds the Windows EXE; tags matching `v*` publish a Release with SHA-256.
+- Single-instance protection and local diagnostic logging.
+- GitHub Actions builds the Windows EXE on a Windows runner.
+- The root `VERSION` file controls releases. When changes reach `main`, an unpublished version is built and published automatically with an EXE, SHA-256 file, and Browser Companion ZIP.
 
 ## Recommended setup
 
@@ -28,9 +30,11 @@ A 14-inch 1080p laptop panel and a 24-inch 1080p external display can have drama
 4. Click **Quick-add last app**. On a significantly higher-DPI monitor, Chromium defaults to 90%; lower-DPI displays default to 100%.
 5. Save. Window transitions are automatic after that.
 
-## Important Chromium note
+## Chrome / Edge companion
 
-The keyboard adapter is deliberately a fallback and is best for a single active browser window. Chrome stores normal page zoom in ways that are not truly per-monitor. A companion Manifest V3 extension is planned/being developed for correct per-tab, per-window monitor-aware zoom using official Chrome extension APIs.
+The repository includes a Manifest V3 Browser Companion under `browser-extension/`. It uses official `windows`, `system.display`, and `tabs` extension APIs to identify which monitor contains a browser window and apply per-tab zoom. It reapplies rules after window moves, tab activation/moves, navigation, and display changes.
+
+The companion and EXE currently keep independent settings. A future Native Messaging bridge can unify them. Without the companion, `ChromiumKeyboardZoom` remains available as a lightweight fallback.
 
 ## Build
 
@@ -52,9 +56,9 @@ Output: `src\DPIFlow\bin\Release\DPIFlow.exe`
 
 ## Roadmap
 
-- Companion Chrome/Edge extension with per-tab zoom.
+- Native Messaging bridge for unified EXE/browser settings.
 - Better adapter plugin model.
-- Rule import/export and diagnostics log.
+- Rule import/export and richer diagnostics.
 - App-specific adapters (PDF readers, Electron apps, etc.).
 - Automated integration tests for monitor/rule selection.
 
