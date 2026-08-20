@@ -26,7 +26,10 @@ namespace DPIFlow.Models
                 return DeviceName ?? string.Empty;
             }
         }
-        public override string ToString() { return string.Format("{0} ({1}, {2}%)", string.IsNullOrWhiteSpace(FriendlyName) ? DeviceName : FriendlyName, MatchKey, ScalePercent); }
+        public override string ToString()
+        {
+            return string.Format("{0} ({1}, {2}%)", string.IsNullOrWhiteSpace(FriendlyName) ? DeviceName : FriendlyName, MatchKey, ScalePercent);
+        }
     }
 
     public sealed class WindowInfo
@@ -62,14 +65,17 @@ namespace DPIFlow.Models
             value = value.Trim();
             return value.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? value : value + ".exe";
         }
-        private static bool Contains(string value, string needle) { return !string.IsNullOrEmpty(value) && value.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0; }
+
+        private static bool Contains(string value, string needle)
+        {
+            return !string.IsNullOrEmpty(value) && value.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
     }
 
     public sealed class AppSettings
     {
         public bool Enabled { get; set; } = true;
         public bool StartWithWindows { get; set; } = false;
-        public int DebounceMs { get; set; } = 200;
         public List<ApplicationRule> Rules { get; set; } = new List<ApplicationRule>();
     }
 }

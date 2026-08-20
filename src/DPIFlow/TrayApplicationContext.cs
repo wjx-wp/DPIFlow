@@ -29,10 +29,12 @@ namespace DPIFlow
             _settings = _store.Load();
             _inspector = new WindowInspector(_monitors);
             LogService.Info("DPIFlow 0.1.0 starting. Rules=" + _settings.Rules.Count);
-            try { StartupService.Apply(_settings.StartWithWindows); } catch (Exception ex) { LogService.Error("Failed to update startup registration.", ex); }
+            try { StartupService.Apply(_settings.StartWithWindows); }
+            catch (Exception ex) { LogService.Error("Failed to update startup registration.", ex); }
 
             _enabledMenu = new ToolStripMenuItem("Automation enabled") { Checked = _settings.Enabled, CheckOnClick = true };
             _enabledMenu.CheckedChanged += (s, e) => { _settings.Enabled = _enabledMenu.Checked; SaveSettings(); };
+
             var menu = new ContextMenuStrip();
             menu.Items.Add(_enabledMenu);
             menu.Items.Add("Settings...", null, (s, e) => OpenSettings());
@@ -68,19 +70,25 @@ namespace DPIFlow
             if (string.Equals(window.ProcessName, "DPIFlow.exe", StringComparison.OrdinalIgnoreCase)) return;
             if (IsUsefulLastApp(window)) _lastObserved = window;
             if (!_settings.Enabled) return;
+
             var rule = _settings.Rules.FirstOrDefault(r => r.Matches(window));
             if (rule == null) return;
+
             string signature = rule.Id + "|" + window.Monitor.MatchKey + "|" + rule.Adapter + "|" + rule.TargetPercent;
             string previous;
             bool force = e.EventType == NativeMethods.EVENT_SYSTEM_FOREGROUND;
             if (!force && _lastApplied.TryGetValue(window.Hwnd, out previous) && previous == signature) return;
+
             var result = AdapterFactory.Create(rule.Adapter).Apply(window, rule);
             if (result.Success)
             {
                 _lastApplied[window.Hwnd] = signature;
                 LogService.Info(string.Format("Applied {0} to {1} on {2}: {3}", rule.Adapter, window.ProcessName, window.Monitor.MatchKey, result.Message));
             }
-            else if (!result.Deferred) LogService.Error(string.Format("Adapter {0} failed for {1} on {2}: {3}", rule.Adapter, window.ProcessName, window.Monitor.MatchKey, result.Message));
+            else if (!result.Deferred)
+            {
+                LogService.Error(string.Format("Adapter {0} failed for {1} on {2}: {3}", rule.Adapter, window.ProcessName, window.Monitor.MatchKey, result.Message));
+            }
             SetTrayText(window.ProcessName + " · " + window.Monitor.MatchKey + " · " + (result.Message ?? ""));
         }
 
@@ -96,6 +104,8 @@ namespace DPIFlow
 
         private void OnDisplaySettingsChanged(object sender, EventArgs e)
         {
+            try { _monitors.Refresh(); }
+            catch (Exception ex) { LogService.Error("Monitor refresh failed after display change.", ex); }
             _lastApplied.Clear();
             LogService.Info("Display configuration changed.");
             SetTrayText("Display configuration changed");
@@ -112,7 +122,8 @@ namespace DPIFlow
             _enabledMenu.Checked = settings.Enabled;
             _lastApplied.Clear();
             SaveSettings();
-            try { StartupService.Apply(settings.StartWithWindows); } catch (Exception ex) { LogService.Error("Failed to update startup registration.", ex); }
+            try { StartupService.Apply(settings.StartWithWindows); }
+            catch (Exception ex) { LogService.Error("Failed to update startup registration.", ex); }
             LogService.Info("Settings saved. Rules=" + settings.Rules.Count);
         }
 

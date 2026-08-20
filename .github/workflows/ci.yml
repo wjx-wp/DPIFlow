@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main, 'feat/**', 'fix/**' ]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,6 +15,13 @@ jobs:
       - name: Build Release
         shell: pwsh
         run: msbuild DPIFlow.sln /m /p:Configuration=Release /p:Platform="Any CPU"
+      - name: Verify binary
+        shell: pwsh
+        run: |
+          $exe = 'src/DPIFlow/bin/Release/DPIFlow.exe'
+          if (-not (Test-Path $exe)) { throw "DPIFlow.exe was not produced" }
+          Get-Item $exe | Format-List Name,Length,LastWriteTime
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:

@@ -4,7 +4,6 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -44,7 +43,42 @@ namespace DPIFlow.Services
 
     internal sealed class MonitorService
     {
+        private readonly object _sync = new object();
+        private List<MonitorInfo> _cache = new List<MonitorInfo>();
+
+        internal MonitorService()
+        {
+            Refresh();
+        }
+
+        internal void Refresh()
+        {
+            var next = EnumerateMonitors();
+            lock (_sync) _cache = next;
+            LogService.Info("Monitor cache refreshed. Count=" + next.Count);
+        }
+
         internal List<MonitorInfo> GetMonitors()
+        {
+            lock (_sync) return _cache.ToList();
+        }
+
+        internal MonitorInfo GetForWindow(IntPtr hwnd)
+        {
+            IntPtr handle = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
+            if (handle == IntPtr.Zero) return null;
+
+            var mi = new NativeMethods.MONITORINFOEX();
+            mi.cbSize = Marshal.SizeOf(mi);
+            if (!NativeMethods.GetMonitorInfo(handle, ref mi)) return null;
+
+            lock (_sync)
+            {
+                return _cache.FirstOrDefault(m => string.Equals(m.DeviceName, mi.szDevice, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        private static List<MonitorInfo> EnumerateMonitors()
         {
             var list = new List<MonitorInfo>();
             foreach (var screen in Screen.AllScreens)
@@ -77,16 +111,6 @@ namespace DPIFlow.Services
             }
             return list;
         }
-
-        internal MonitorInfo GetForWindow(IntPtr hwnd)
-        {
-            IntPtr handle = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
-            if (handle == IntPtr.Zero) return null;
-            var mi = new NativeMethods.MONITORINFOEX();
-            mi.cbSize = Marshal.SizeOf(mi);
-            if (!NativeMethods.GetMonitorInfo(handle, ref mi)) return null;
-            return GetMonitors().FirstOrDefault(m => string.Equals(m.DeviceName, mi.szDevice, StringComparison.OrdinalIgnoreCase));
-        }
     }
 
     internal sealed class SettingsStore
@@ -94,13 +118,17 @@ namespace DPIFlow.Services
         private readonly JavaScriptSerializer _json = new JavaScriptSerializer();
         internal string FolderPath { get { return LogService.FolderPath; } }
         internal string FilePath { get { return Path.Combine(FolderPath, "settings.json"); } }
+
         internal AppSettings Load()
         {
             try
             {
                 if (!File.Exists(FilePath)) return new AppSettings();
                 var value = _json.Deserialize<AppSettings>(File.ReadAllText(FilePath));
-                return value ?? new AppSettings();
+                if (value == null) return new AppSettings();
+                if (value.Rules == null) value.Rules = new List<ApplicationRule>();
+                value.Rules = value.Rules.Where(r => r != null).ToList();
+                return value;
             }
             catch (Exception ex)
             {
@@ -108,6 +136,7 @@ namespace DPIFlow.Services
                 return new AppSettings();
             }
         }
+
         internal void Save(AppSettings settings)
         {
             Directory.CreateDirectory(FolderPath);
@@ -133,12 +162,14 @@ namespace DPIFlow.Services
     {
         private readonly MonitorService _monitors;
         internal WindowInspector(MonitorService monitors) { _monitors = monitors; }
+
         internal WindowInfo Inspect(IntPtr hwnd)
         {
             if (hwnd == IntPtr.Zero || !NativeMethods.IsWindowVisible(hwnd)) return null;
             uint pid;
             NativeMethods.GetWindowThreadProcessId(hwnd, out pid);
             if (pid == 0) return null;
+
             try
             {
                 using (var process = Process.GetProcessById((int)pid))
